@@ -2,6 +2,7 @@
 #include <iostream>
 #include <assert.h>
 #include <string.h>
+#include <math.h>
 #include <sndfile.h>
 #include "eq.h"
 
@@ -39,6 +40,41 @@ EQ::EQ(){
 // Interpolate values from gains vector linearly into
 // linear-spaced freq_shape_buf
 void EQ::recalc(void){
+
+    // closests neighbors from FREQS
+    float left=0.0;
+    float right=FREQS[0];
+    int next_right=1;
+    // and their gains - consider extreme points at 0 and 20k to have same
+    // values as boundary points (16, 16k)
+    float gain_l, gain_r, dbgain;
+    gain_l = gain_r = gains[0]; 
+
+    float f_max = 44100/2;
+
+    for (int i=0; i<NFFT; ++i){
+        // get interpolated value in decibels
+
+        float f = f_max * (float)i/NFFT;
+
+        // check if we shouldnt skip to next interval from FREQS
+        while (f > right){
+            if (next_right == NCH){
+                right = f_max;
+                gain_l = gain_r = gains[NCH-1];
+                break;
+            }
+            gain_l = gain_r;
+            gain_r = gains[next_right];
+            left = right;
+            right = FREQS[next_right++];
+        }
+
+        float k = (gain_r - gain_l)/(right - left);
+        dbgain = gain_l + k*(f-left);
+        // convert dB to amplitude gain
+        freq_shape_buf[i] = expf(dbgain/10);
+    }
 }
 
 
@@ -110,6 +146,7 @@ bool EQ::preset(const char *fname) {
         ifs >> gains[i];
     }
     ifs.close();
+    recalc();
     return true;
 }
 
@@ -128,6 +165,22 @@ bool EQ::dump(const char *fname){
     ofs.close();
     return true;
 }
+
+bool EQ::dump_shape(const char *fname){
+    ofstream ofs (fname, std::ofstream::out);
+    if (!ofs.good()){
+        return false;
+    }
+
+    char buf[100];
+    for (int i=0; i < NFFT; ++i){
+        snprintf(buf, 100, "%f\n", freq_shape_buf[i]);
+        ofs << buf;
+    }
+    ofs.close();
+    return true;
+}
+
 
 
 int EQ::filter_file(char *in_fname, char *out_fname) {

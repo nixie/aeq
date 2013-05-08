@@ -28,6 +28,7 @@ class EQ {
         void preset(int band, int gain);
         bool preset(const char *fname);
         bool dump(const char *fname);
+        bool dump_shape(const char *fname);
         int get_nchans() { return NCH; }
         float get_gain(int band) { return gains[band]; }
         const char* get_label(int band) { return FREQ_LABELS[band]; }
