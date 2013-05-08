@@ -1,8 +1,13 @@
 
-CFLAGS=--std=c99 -Wall -pedantic -ggdb3
+CFLAGS=-std=c++11 -Wall -pedantic -ggdb3
 
-all:
-	gcc $(CFLAGS) -o aeq aeq.c -lcurses `pkg-config --cflags --libs jack` -lm
+%.o: %.cpp %.h
+	$(CXX) -c $(CFLAGS) $^
+
+all: aeq
+
+aeq: main.cpp eq.o ui.o knob.o
+	g++ $(CFLAGS) -o $@ $^ -lcurses `pkg-config --cflags --libs jack` -lm
 
 clean:
-	rm -rf *.o aeq
+	rm -rf *.o aeq *.gch
