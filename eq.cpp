@@ -1,4 +1,6 @@
 #include <assert.h>
+#include <fstream>
+#include <iostream>
 #include "eq.h"
 
 using namespace std;
@@ -29,6 +31,8 @@ void EQ::filter(float *input, float *output, int n){
     }
 }
 
+int EQ::filter_file(char *in_fname, char *out_fname) { return 0;}
+
 void EQ::preset(vector<float> gains){
     assert(this->gains.size() == gains.size());
     this->gains = gains;
@@ -40,14 +44,38 @@ void EQ::preset(int band, int gain) {
     recalc();
 }
 
-std::string EQ::dump(){
-    char buf[100];
-    std::string s = "Freq. \tGain\n";
-    for (unsigned int i=0; i < gains.size(); ++i){
-        snprintf(buf, 100, "%s \t%f\n", FREQ_LABELS[i], gains[i]);
-        s += buf;
+// load preset from file
+bool EQ::preset(const char *fname) {
+    ifstream ifs (fname, std::ifstream::in);
+    if (!ifs.good()){
+        return false;
     }
-    return s;
+    
+    for (unsigned int i=0; i < gains.size(); ++i){
+        if (!ifs.good()){
+            ifs.close();
+            return false;
+        }
+        ifs >> gains[i];
+    }
+    ifs.close();
+    return true;
+}
+
+// save preset to file
+bool EQ::dump(const char *fname){
+    ofstream ofs (fname, std::ofstream::out);
+    if (!ofs.good()){
+        return false;
+    }
+
+    char buf[100];
+    for (unsigned int i=0; i < gains.size(); ++i){
+        snprintf(buf, 100, "%f\n", gains[i]);
+        ofs << buf;
+    }
+    ofs.close();
+    return true;
 }
 
 

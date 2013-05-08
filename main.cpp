@@ -37,12 +37,35 @@ jack_nframes_t srate;
 typedef jack_default_audio_sample_t sample_t;
 int process (jack_nframes_t nframes, void *arg);
 void jack_shutdown (void *arg);
+const char* synopsis = "aeq [-c preset_file] [in.wav out.wav]\n";
 
 int main(int argc, char *argv[]) {
+    knobs.assign(NCH, Knob());
+    if (argc == 1+4 || argc == 1+2){
+        if (strcmp(argv[1], "-c") != 0){
+            cerr << "Bad syntax! Expected: " << synopsis;
+            return EXIT_FAILURE;
+        } else if (!eq.preset(argv[2])){
+            cerr << "Error loading EQ config from file" << argv[2] << endl;
+            return EXIT_FAILURE;
+        }
+        // set knobs accordingly to new EQ settings
+        for (unsigned int i=0; i< knobs.size(); ++i){
+            knobs[i].value = eq.get_gain(i);
+        }
+
+        if (argc == 1+4){
+            return eq.filter_file(argv[3], argv[4]);
+        }
+    } else if (argc != 1){
+        cerr << "Bad syntax! Expected: " << synopsis;
+        return EXIT_FAILURE;
+    }
+
+
     // init jack
     jack_client_t *client;
     const char **ports;
-    knobs.assign(NCH, Knob());
 
     if ((client = jack_client_open ("aeq", JackNullOption, NULL)) == 0) {
         cerr << "jack server not running?\n";
@@ -121,6 +144,17 @@ int main(int argc, char *argv[]) {
                 box(p_root, 0, 0);
                 draw_knobs(p_root, knobs, curr_knob);
                 wrefresh(p_root);
+                break;
+            case 's':
+                eq.dump("eqdump.txt");
+                break;
+            case 'l':
+                eq.preset("eqdump.txt");
+                // set knobs accordingly to new EQ settings
+                for (unsigned int i=0; i< knobs.size(); ++i){
+                    knobs[i].value = eq.get_gain(i);
+                }
+                break;
 
 			case 10:    // Enter
 			default:
@@ -134,7 +168,6 @@ int main(int argc, char *argv[]) {
 
     jack_client_close(client);
     endwin();
-    cout << eq.dump();
     return EXIT_SUCCESS;
 }
 
