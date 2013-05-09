@@ -3,13 +3,15 @@
 #include <assert.h>
 #include <string.h>
 #include <math.h>
+#include <fftw3.h>
 #include <sndfile.h>
 #include "eq.h"
 
 using namespace std;
-float tmp_ibuf[NFFT];
-float tmp_obuf[NFFT];
-
+float *realbuf;
+fftwf_complex *complexbuf;
+fftwf_plan r2c;
+fftwf_plan c2r;
 
 // 1 Octave preffered frequency bands (ISO) for 20Hz-20kHz, base 10
 // conforms: ISO R 266-1997 or equivalent ANSI S1.6-1984
@@ -33,10 +35,6 @@ const char* EQ::FREQ_LABELS[NCH] = {
 };
 
 
-EQ::EQ(){
-    gains.assign(NCH, 0.0f);
-}
-
 // Interpolate values from gains vector linearly into
 // linear-spaced freq_shape_buf
 void EQ::recalc(void){
@@ -52,10 +50,10 @@ void EQ::recalc(void){
 
     float f_max = 44100/2;
 
-    for (int i=0; i<NFFT; ++i){
+    for (int i=0; i < (NFFT/2+1); ++i){
         // get interpolated value in decibels
 
-        float f = f_max * (float)i/NFFT;
+        float f = f_max * (float)i/(NFFT/2+1);
 
         // check if we shouldnt skip to next interval from FREQS
         while (f > right){
@@ -72,17 +70,35 @@ void EQ::recalc(void){
 
         float k = (gain_r - gain_l)/(right - left);
         dbgain = gain_l + k*(f-left);
-        // convert dB to amplitude gain
-        freq_shape_buf[i] = expf(dbgain/10);
+        // convert dB to amplitude gain (division by NFFT = forward FFT
+        // normalization factor)
+        freq_shape_buf[i] = expf(dbgain/10) / NFFT;
     }
 }
 
 
-void filter_buf(float *input, float *output, int n){
+EQ::EQ(){
+    gains.assign(NCH, 0.0);
+    recalc();
+
+    realbuf = (float*)fftwf_malloc(sizeof(float)*NFFT);
+    complexbuf = (fftwf_complex*)fftwf_malloc(sizeof(fftwf_complex)*(NFFT/2+1));
+
+    r2c = fftwf_plan_dft_r2c_1d(NFFT, realbuf, complexbuf, FFTW_ESTIMATE);
+    c2r = fftwf_plan_dft_c2r_1d(NFFT, complexbuf, realbuf, FFTW_ESTIMATE);
+}
+
+EQ::~EQ(){
+    fftwf_destroy_plan(r2c);
+    fftwf_destroy_plan(c2r);
+    fftwf_free(realbuf);
+    fftwf_free(complexbuf);
+}
+
+void EQ::filter_buf(){
     // following code assumes fixed size (NFFT) of samples.
     // Use filter() to preprocess (zero-pad or segment) signal for variable
     // length buffers.
-    assert(n==NFFT);
 
     // MATLAB code that works
     // X=fft(x);
@@ -90,34 +106,36 @@ void filter_buf(float *input, float *output, int n){
     // X2 = X.*mask;
     // x2 = real(ifft(X2));
 
-    for (int i=0; i < n; ++i){
-        output[i] = input[i];
+    fftwf_execute(r2c);
+
+    for (int i=0; i < NFFT/2+1; ++i){
+        complexbuf[i][0] *=  freq_shape_buf[i];
+        complexbuf[i][1] *=  freq_shape_buf[i];
     }
+
+    fftwf_execute(c2r);
 }
 
 // Spectral domain filtering
 void EQ::filter(float *input, float *output, int n){
     assert(n==NFFT || n < NFFT);    // TODO segmentation 
-    float *p_in = input;
-    float *p_out = output;
+
+    for (int i=0; i < n; ++i){
+        realbuf[i] = input[i];
+    }
+    //memcpy(realbuf, input, n*sizeof(float));
 
     if (n < NFFT){
         // zero pad incomplete signal to have NFFT length
-        memset(tmp_ibuf, 0x00, NFFT*sizeof(float));
-        memcpy(tmp_ibuf, input, n*sizeof(float));
-        p_in = tmp_ibuf;
-        p_out = tmp_obuf;
+        memset(realbuf+NFFT-n, 0x00, (NFFT-n)*sizeof(float));
     }
 
-    // common either for n==NFFT or n < NFFT -> pointers p_in/p_out
-    // points to either original buffers of size NFFT or to temporary
-    // buffers also of size NFFT
-    filter_buf(p_in, p_out, NFFT);
+    filter_buf();
 
-    if (n < NFFT){
-        // copy n samples back to original output buffer
-        memcpy(output, tmp_obuf, n*sizeof(float));
+    for (int i=0; i < n; ++i){
+        output[i] = realbuf[i];
     }
+    //memcpy(output, realbuf, n*sizeof(float));
 }
 
 void EQ::preset(vector<float> gains){

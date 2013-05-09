@@ -5,7 +5,7 @@
 #include <string>
 
 const int NCH = 11;
-const int NFFT = 256;
+const int NFFT = 1024;
 
 class EQ {
     private:
@@ -13,8 +13,7 @@ class EQ {
         // knob states
         std::vector<float> gains;
 
-        // resolution of FFT
-        float freq_shape_buf[NFFT];
+        float freq_shape_buf[NFFT/2+1];
 
         void recalc();
 
@@ -24,6 +23,7 @@ class EQ {
         static const char* FREQ_LABELS[NCH];
 
         EQ();
+        ~EQ();
         void preset(std::vector<float> gains);
         void preset(int band, int gain);
         bool preset(const char *fname);
@@ -34,6 +34,7 @@ class EQ {
         const char* get_label(int band) { return FREQ_LABELS[band]; }
 
         void filter(float *input, float *output, int n);
+        void filter_buf();
         int filter_file(char *in_fname, char *out_fname);
 };
 #endif
