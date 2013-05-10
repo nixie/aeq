@@ -18,6 +18,7 @@
 #include "eq.h"
 #include "ui.h"
 #include "knob.h"
+#include "logbuf.h"
 using namespace std;
 
 
@@ -30,6 +31,8 @@ unsigned int curr_knob;
 
 /* Equalizer instance */
 EQ eq;
+
+LogBuf logbuf;
 
 /* JACK stereo input/input ports */
 jack_port_t *input1, *input2, *output1, *output2;
@@ -62,6 +65,7 @@ int main(int argc, char *argv[]) {
         return EXIT_FAILURE;
     }
 
+    logbuf.add_msg("Hello");
 
     // init jack
     jack_client_t *client;
@@ -171,6 +175,8 @@ int main(int argc, char *argv[]) {
 
     jack_client_close(client);
     endwin();
+    logbuf.flush();
+    eq.dump_impulse_response("ir.txt");
     return EXIT_SUCCESS;
 }
 

@@ -5,15 +5,15 @@
 #include <string>
 
 const int NCH = 11;
-const int NFFT = 1024;
+const int NFIR = 128;
+const int NCPLX = NFIR/2+1;
+const int NBUF = 256;
 
 class EQ {
     private:
 
         // knob states
         std::vector<float> gains;
-
-        float freq_shape_buf[NFFT/2+1];
 
         void recalc();
 
@@ -29,6 +29,7 @@ class EQ {
         bool preset(const char *fname);
         bool dump(const char *fname);
         bool dump_shape(const char *fname);
+        bool dump_impulse_response(const char *fname);
         int get_nchans() { return NCH; }
         float get_gain(int band) { return gains[band]; }
         const char* get_label(int band) { return FREQ_LABELS[band]; }

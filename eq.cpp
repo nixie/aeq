@@ -9,6 +9,7 @@
 
 using namespace std;
 float *realbuf;
+float *fir_coefs;
 fftwf_complex *complexbuf;
 fftwf_plan r2c;
 fftwf_plan c2r;
@@ -50,10 +51,10 @@ void EQ::recalc(void){
 
     float f_max = 44100/2;
 
-    for (int i=0; i < (NFFT/2+1); ++i){
+    for (int i=0; i < NCPLX; ++i){
         // get interpolated value in decibels
 
-        float f = f_max * (float)i/(NFFT/2+1);
+        float f = f_max * (float)i/NCPLX;
 
         // check if we shouldnt skip to next interval from FREQS
         while (f > right){
@@ -70,26 +71,34 @@ void EQ::recalc(void){
 
         float k = (gain_r - gain_l)/(right - left);
         dbgain = gain_l + k*(f-left);
-        // convert dB to amplitude gain (division by NFFT = forward FFT
-        // normalization factor)
-        freq_shape_buf[i] = expf(dbgain/10) / NFFT;
+        // convert dB to amplitude gain 
+        complexbuf[i][0] = expf(dbgain/20);
+        complexbuf[i][1] = 0.0f;
     }
+
+    // get impulse response
+    fftwf_execute(c2r);
+
+    // multiply with Hanning window and normalize IFFT result
+    for(int i=0; i < NFIR; ++i){
+        realbuf[i] = realbuf[i] * (1.0/NFIR) * 0.5*cos(2.0*M_PI*i/NFIR) + 0.5;
+    }
+    // swap two halves for easier computation
+    memcpy(fir_coefs+NFIR/2, realbuf, sizeof(float)*NFIR/2);
+    memcpy(fir_coefs, realbuf+NFIR/2, sizeof(float)*NFIR/2);
 }
 
 
 EQ::EQ(){
     gains.assign(NCH, 0.0);
+    realbuf = (float*)fftwf_malloc(sizeof(float)*NFIR);
+    fir_coefs = (float*)fftwf_malloc(sizeof(float)*NFIR);
+    complexbuf = (fftwf_complex*)fftwf_malloc(sizeof(fftwf_complex)*NCPLX);
+    c2r = fftwf_plan_dft_c2r_1d(NFIR, complexbuf, realbuf, FFTW_ESTIMATE);
     recalc();
-
-    realbuf = (float*)fftwf_malloc(sizeof(float)*NFFT);
-    complexbuf = (fftwf_complex*)fftwf_malloc(sizeof(fftwf_complex)*(NFFT/2+1));
-
-    r2c = fftwf_plan_dft_r2c_1d(NFFT, realbuf, complexbuf, FFTW_ESTIMATE);
-    c2r = fftwf_plan_dft_c2r_1d(NFFT, complexbuf, realbuf, FFTW_ESTIMATE);
 }
 
 EQ::~EQ(){
-    fftwf_destroy_plan(r2c);
     fftwf_destroy_plan(c2r);
     fftwf_free(realbuf);
     fftwf_free(complexbuf);
@@ -106,20 +115,38 @@ void EQ::filter_buf(){
     // X2 = X.*mask;
     // x2 = real(ifft(X2));
 
-    fftwf_execute(r2c);
-
+    /*
     for (int i=0; i < NFFT/2+1; ++i){
         complexbuf[i][0] *=  freq_shape_buf[i];
         complexbuf[i][1] *=  freq_shape_buf[i];
-    }
+    }*/
 
-    fftwf_execute(c2r);
 }
 
-// Spectral domain filtering
-void EQ::filter(float *input, float *output, int n){
-    assert(n==NFFT || n < NFFT);    // TODO segmentation 
+float fir_mem[NFIR-1];
+int next_cell=0;
+void fir(float *input, float *output, int n){
+    // process input samples one-by-one
+    for (int i=0; i < n; ++i){
 
+        float sum=fir_coefs[0]*input[i];
+        // MACs with memcells
+        for (int j=0; j < NFIR-1; ++j){
+            sum += fir_coefs[j+1]*fir_mem[(j+next_cell)%(NFIR-1)];
+        }
+        output[i] = sum;
+        fir_mem[next_cell] = input[i];
+        next_cell = (next_cell+1)%(NFIR-1);
+    }
+}
+
+
+void EQ::filter(float *input, float *output, int n){
+    //assert(n==NFFT || n < NFFT);    // TODO segmentation 
+
+    fir(input, output, n);
+
+    /*
     for (int i=0; i < n; ++i){
         realbuf[i] = input[i];
     }
@@ -136,6 +163,7 @@ void EQ::filter(float *input, float *output, int n){
         output[i] = realbuf[i];
     }
     //memcpy(output, realbuf, n*sizeof(float));
+    */
 }
 
 void EQ::preset(vector<float> gains){
@@ -191,13 +219,29 @@ bool EQ::dump_shape(const char *fname){
     }
 
     char buf[100];
-    for (int i=0; i < NFFT; ++i){
-        snprintf(buf, 100, "%f\n", freq_shape_buf[i]);
+    for (int i=0; i < NCPLX; ++i){
+        snprintf(buf, 100, "%f\n", complexbuf[i][0]);
         ofs << buf;
     }
     ofs.close();
     return true;
 }
+
+bool EQ::dump_impulse_response(const char *fname){
+    ofstream ofs (fname, std::ofstream::out);
+    if (!ofs.good()){
+        return false;
+    }
+
+    char buf[100];
+    for (int i=0; i < NFIR; ++i){
+        snprintf(buf, 100, "%f\n", fir_coefs[i]);
+        ofs << buf;
+    }
+    ofs.close();
+    return true;
+}
+
 
 
 
@@ -222,8 +266,8 @@ int EQ::filter_file(char *in_fname, char *out_fname) {
     //    sfinfo.format = SF_FORMAT_WAV | SF_FORMAT_PCM_16;
       //  sfinfo.samplerate = 8000;
         //sfinfo.channels = 1;
-    float *input_buffer = new float[NFFT*sfinfo.channels];
-    float *output_buffer = new float[NFFT*sfinfo.channels];
+    float *input_buffer = new float[NBUF*sfinfo.channels];
+    float *output_buffer = new float[NBUF*sfinfo.channels];
     if (!input_buffer || !output_buffer){
         cerr << "Not enough memory, exiting!\n";
         sf_close(infile);
@@ -238,7 +282,7 @@ int EQ::filter_file(char *in_fname, char *out_fname) {
 
     int readcount;
     int spc; // samples per channel
-    while ((readcount = sf_read_float (infile, input_buffer, NFFT*sfinfo.channels))){
+    while ((readcount = sf_read_float (infile, input_buffer, NBUF*sfinfo.channels))){
         spc = readcount/sfinfo.channels;
         for (int c=0; c < sfinfo.channels; ++c){
             filter(input_buffer+spc*c, output_buffer+spc*c, spc);
