@@ -5,7 +5,7 @@
 #include <string>
 
 const int NCH = 11;
-const int NFIR = 128;
+const int NFIR = 256;
 const int NCPLX = NFIR/2+1;
 const int NBUF = 256;
 

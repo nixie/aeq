@@ -152,9 +152,6 @@ int main(int argc, char *argv[]) {
             case 's':
                 eq.dump("eqdump.txt");
                 break;
-            case 'd':
-                eq.dump_shape("shdump.txt");
-                break;
             case 'l':
                 eq.preset("eqdump.txt");
                 // set knobs accordingly to new EQ settings
