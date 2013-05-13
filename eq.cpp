@@ -82,7 +82,7 @@ void EQ::recalc(void){
     // multiply with Hanning window and normalize IFFT result
     for(int i=0; i < NFIR; ++i){
         realbuf[i] = realbuf[i] * (1.0/NFIR) * (0.5*cos(2.0*M_PI*i/NFIR) + 0.5);
-        realbuf[i] = 0.0;
+        //realbuf[i] = 0.0;
     }
 
 
@@ -126,28 +126,27 @@ void EQ::filter_buf(){
 
 }
 
-float fir_mem[NFIR-1];
-int next_cell=0;
-void fir(float *input, float *output, int n){
+float fir_mem[2][NFIR-1];
+int next_cell[2] = {0};
+void fir(float *input, float *output, int n, int c){
     // process input samples one-by-one
     for (int i=0; i < n; ++i){
 
         float sum=fir_coefs[0]*input[i];
         // MACs with memcells
         for (int j=0; j < NFIR-1; ++j){
-            sum += fir_coefs[j+1]*fir_mem[(j+next_cell)%(NFIR-1)];
+            sum += fir_coefs[j+1]*fir_mem[c][(j+next_cell[c])%(NFIR-1)];
         }
         output[i] = sum;
-        fir_mem[next_cell] = input[i];
-        next_cell = (next_cell+1)%(NFIR-1);
+        fir_mem[c][next_cell[c]] = input[i];
+        next_cell[c] = (next_cell[c]+1)%(NFIR-1);
     }
 }
 
-
-void EQ::filter(float *input, float *output, int n){
+void EQ::filter(float *input, float *output, int n, int channel){
     //assert(n==NFFT || n < NFFT);    // TODO segmentation 
 
-    fir(input, output, n);
+    fir(input, output, n, channel-1); // index ch1=0, ch2=1
 
     /*
     for (int i=0; i < n; ++i){
@@ -288,7 +287,7 @@ int EQ::filter_file(char *in_fname, char *out_fname) {
     while ((readcount = sf_read_float (infile, input_buffer, NBUF*sfinfo.channels))){
         spc = readcount/sfinfo.channels;
         for (int c=0; c < sfinfo.channels; ++c){
-            filter(input_buffer+spc*c, output_buffer+spc*c, spc);
+            filter(input_buffer+spc*c, output_buffer+spc*c, spc, c+1); //!! max 2 channels
         }
         sf_write_float (outfile, output_buffer, readcount) ;
     }

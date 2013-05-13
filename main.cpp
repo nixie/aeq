@@ -196,8 +196,8 @@ int process (jack_nframes_t nframes, void *arg) {
         }
         */
 
-        eq.filter(in_1, out_1, nframes);
-        eq.filter(in_2, out_2, nframes);
+        eq.filter(in_1, out_1, nframes, 1);
+        eq.filter(in_2, out_2, nframes, 2);
         
         return 0;      
 }

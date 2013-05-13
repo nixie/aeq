@@ -34,7 +34,7 @@ class EQ {
         float get_gain(int band) { return gains[band]; }
         const char* get_label(int band) { return FREQ_LABELS[band]; }
 
-        void filter(float *input, float *output, int n);
+        void filter(float *input, float *output, int n, int channel);
         void filter_buf();
         int filter_file(char *in_fname, char *out_fname);
 };
