@@ -113,7 +113,11 @@ int main(int argc, char *argv[]) {
     }
     curs_set(0);		// no cursor
     clear(); cbreak(); noecho(); use_default_colors(); start_color();
-    box(p_root, 0, 0);
+    init_pair(1, COLOR_RED, COLOR_BLACK);
+    init_pair(2, COLOR_GREEN, COLOR_BLUE);
+    init_pair(3, COLOR_YELLOW, COLOR_BLUE);
+
+    //box(p_root, 0, 0);
     if (keypad(p_root, TRUE) == ERR){
         cerr << "failed to set keypad on!\n";
     }
