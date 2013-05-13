@@ -5,7 +5,7 @@
 #include <string>
 
 const int NCH = 11;
-const int NFIR = 256;
+const int NFIR = 64;
 const int NCPLX = NFIR/2+1;
 const int NBUF = 256;
 
@@ -34,7 +34,7 @@ class EQ {
         float get_gain(int band) { return gains[band]; }
         const char* get_label(int band) { return FREQ_LABELS[band]; }
 
-        void filter(float *input, float *output, int n, int channel);
+        void filter(float *input, float *output, int n, int channel, int step=1);
         void filter_buf();
         int filter_file(char *in_fname, char *out_fname);
 };
