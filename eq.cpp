@@ -284,6 +284,7 @@ int EQ::filter_file(char *in_fname, char *out_fname) {
 
     int readcount;
     int spc; // samples per channel
+    sf_command(outfile, SFC_SET_CLIPPING, NULL, SF_TRUE);
     while ((readcount = sf_read_float (infile, input_buffer, NBUF*sfinfo.channels))){
         spc = readcount/sfinfo.channels;
         for (int c=0; c < sfinfo.channels; ++c){
