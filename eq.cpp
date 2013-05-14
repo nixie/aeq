@@ -79,9 +79,13 @@ void EQ::recalc(void){
     // get impulse response - this call destroys complexbuf!
     fftwf_execute(c2r);
 
-    // multiply with Hanning window and normalize IFFT result
+    // normalize IFFT result
     for(int i=0; i < NFIR; ++i){
-        realbuf[i] = realbuf[i] * (1.0/NFIR) * (0.5*cos(2.0*M_PI*i/NFIR) + 0.5);
+        realbuf[i] = realbuf[i] * (1.0/NFIR);
+
+        
+        //multiply with Hanning window
+        realbuf[i] *= (0.5*cos(2.0*M_PI*i/NFIR) + 0.5);
     }
 
 

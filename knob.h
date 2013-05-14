@@ -11,7 +11,7 @@ class Knob {
         float default_value;
         std::string unit;
 
-        Knob() : value(0.0), lo(-24.0), hi(24.0),
+        Knob() : value(0.0), lo(-48.0), hi(48.0),
                  default_value(0.0), unit("dB") {};
         void reset(){ value = default_value; }
         void step(int direction, float step=3.0f);

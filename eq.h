@@ -5,7 +5,7 @@
 #include <string>
 
 const int NCH = 11;     // channel/band count
-const int NFIR = 64;    // FIR filter order
+const int NFIR = 512;    // FIR filter order
 const int NCPLX = NFIR/2+1;
 const int NBUF = 256;   // buffer size for file IO
 
