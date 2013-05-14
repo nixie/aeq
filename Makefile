@@ -11,7 +11,7 @@ aeq: main.cpp eq.o ui.o knob.o logbuf.h
 
 pkg:
 	read -r -p "Zadej login: " login; \
-	zip -r "$$login.zip" *.cpp *.h Makefile eqdump.txt README.pdf
+	zip -r "$$login.zip" *.cpp *.h Makefile eqdump.txt README.pdf pila.wav
 
 clean:
 	rm -rf *.o aeq *.gch
