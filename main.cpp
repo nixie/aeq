@@ -65,7 +65,7 @@ int main(int argc, char *argv[]) {
         return EXIT_FAILURE;
     }
 
-    logbuf.add_msg("Hello");
+    logbuf.add_msg("Connecting to JACK");
 
     // init jack
     jack_client_t *client;
@@ -105,6 +105,7 @@ int main(int argc, char *argv[]) {
     free (ports);
 
 
+    logbuf.add_msg("Initializing curses");
     // init curses
     WINDOW *p_root;
     if ( (p_root = initscr()) == NULL){
@@ -123,6 +124,7 @@ int main(int argc, char *argv[]) {
     }
 
 
+    logbuf.add_msg("Entering main loop");
 
     int c;
     int nch = eq.get_nchans();
@@ -177,7 +179,6 @@ int main(int argc, char *argv[]) {
     jack_client_close(client);
     endwin();
     logbuf.flush();
-    eq.dump_impulse_response("ir.txt");
     return EXIT_SUCCESS;
 }
 

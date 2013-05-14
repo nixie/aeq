@@ -106,25 +106,6 @@ EQ::~EQ(){
     fftwf_free(complexbuf);
 }
 
-void EQ::filter_buf(){
-    // following code assumes fixed size (NFFT) of samples.
-    // Use filter() to preprocess (zero-pad or segment) signal for variable
-    // length buffers.
-
-    // MATLAB code that works
-    // X=fft(x);
-    // mask = [ones(1,64)*0.5 zeros(1,128) ones(1,64)*0.5];
-    // X2 = X.*mask;
-    // x2 = real(ifft(X2));
-
-    /*
-    for (int i=0; i < NFFT/2+1; ++i){
-        complexbuf[i][0] *=  freq_shape_buf[i];
-        complexbuf[i][1] *=  freq_shape_buf[i];
-    }*/
-
-}
-
 float fir_mem[2][NFIR-1];
 int next_cell[2] = {0};
 void fir(float *input, float *output, int n, int c, int step){
@@ -143,28 +124,7 @@ void fir(float *input, float *output, int n, int c, int step){
 }
 
 void EQ::filter(float *input, float *output, int n, int channel, int step){
-    //assert(n==NFFT || n < NFFT);    // TODO segmentation 
-
     fir(input, output, n, channel-1, step); // index ch1=0, ch2=1
-
-    /*
-    for (int i=0; i < n; ++i){
-        realbuf[i] = input[i];
-    }
-    //memcpy(realbuf, input, n*sizeof(float));
-
-    if (n < NFFT){
-        // zero pad incomplete signal to have NFFT length
-        memset(realbuf+NFFT-n, 0x00, (NFFT-n)*sizeof(float));
-    }
-
-    filter_buf();
-
-    for (int i=0; i < n; ++i){
-        output[i] = realbuf[i];
-    }
-    //memcpy(output, realbuf, n*sizeof(float));
-    */
 }
 
 void EQ::preset(vector<float> gains){
@@ -303,7 +263,6 @@ int EQ::filter_file(char *in_fname, char *out_fname) {
     delete [] output_buffer;
 
     
-    return 0;}
-
-
+    return 0;
+}
 
